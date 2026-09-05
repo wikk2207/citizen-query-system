@@ -24,12 +24,11 @@ from app.utils.helpers import calculate_achievement_points, log_action, save_upl
 bp = Blueprint("mentor", __name__)
 
 PROBLEM_TYPES = [
-    "Study Material",
-    "Achievement",
-    "Activity",
-    "Certificate Upload",
-    "Report",
-    "Account",
+    "Complaint Update",
+    "Problem Status",
+    "Additional Evidence",
+    "Location Information",
+    "General Question",
     "Other",
 ]
 PRIORITIES = ["Normal", "Urgent", "Low"]
@@ -316,14 +315,14 @@ def messages(student_id=None):
     )
     student_ids.update(
         row[0]
-        for row in db.session.query(User.id).filter(User.role == "student").all()
+        for row in db.session.query(User.id).filter(User.role.in_(["citizen", "student"])).all()
     )
     student_ids.discard(current_user_id)
 
     conversation_rows = []
     if student_ids:
         students = (
-            User.query.filter(User.id.in_(student_ids), User.role == "student")
+            User.query.filter(User.id.in_(student_ids), User.role.in_(["citizen", "student"]))
             .order_by(User.full_name)
             .all()
         )
@@ -358,13 +357,13 @@ def messages(student_id=None):
 
     selected_student = None
     if student_id:
-        selected_student = User.query.filter_by(id=student_id, role="student").first_or_404()
+        selected_student = User.query.filter(User.id == student_id, User.role.in_(["citizen", "student"])).first_or_404()
     elif conversation_rows:
         selected_student = conversation_rows[0]["student"]
 
     if request.method == "POST":
         if not selected_student:
-            flash("Please select a student conversation.", "danger")
+            flash("Please select a citizen conversation.", "danger")
             return redirect(url_for("mentor.messages"))
         body = (request.form.get("body") or "").strip()
         attachment_file = request.files.get("attachment")
@@ -380,7 +379,7 @@ def messages(student_id=None):
             flash("Please write a reply or attach a note/material.", "danger")
             return redirect(url_for("mentor.messages", student_id=selected_student.id))
         if not body:
-            body = "Shared a note or study material."
+            body = "Shared an update or attachment."
         msg = Message(
             sender_id=current_user_id,
             receiver_id=selected_student.id,
@@ -394,7 +393,7 @@ def messages(student_id=None):
         db.session.add(
             Notification(
                 user_id=selected_student.id,
-                title="Mentor Reply",
+                title="Government Reply",
                 message=f"You got a reply from {current_user_name}.",
             )
         )
@@ -403,11 +402,11 @@ def messages(student_id=None):
             selected_student.email,
             f"Reply from {current_user_name}",
             (
-                f"You got a reply from mentor {current_user_name}.\n"
+                f"You got a reply from the government officer {current_user_name}.\n"
                 f"Open: {url_for('student.messages', _external=True)}\n\n{body}"
             ),
         )
-        flash("Reply sent to student.", "success")
+        flash("Reply sent to citizen.", "success")
         return redirect(url_for("mentor.messages", student_id=selected_student.id))
 
     chat_messages = []
@@ -443,7 +442,7 @@ def messages(student_id=None):
 @bp.route("/messages/<int:student_id>/status", methods=["POST"])
 @mentor_required
 def message_status(student_id):
-    student = User.query.filter_by(id=student_id, role="student").first_or_404()
+    student = User.query.filter(User.id == student_id, User.role.in_(["citizen", "student"])).first_or_404()
     resolved = request.form.get("status") == "Resolved"
     conversation = _conversation_id(int(current_user.get_id()), student.id)
     Message.query.filter_by(conversation_id=conversation).update({"is_resolved": resolved})
@@ -606,6 +605,14 @@ def _shared_material_rows(messages):
 def _user_profile_stats(user):
     if not user:
         return None
+    if user.role == "citizen":
+        complaints = Complaint.query.filter_by(citizen_id=user.id).all()
+        return {
+            "complaint_count": len(complaints),
+            "active_count": sum(item.status not in {"Resolved", "Closed", "Rejected"} for item in complaints),
+            "resolved_count": sum(item.status in {"Resolved", "Closed"} for item in complaints),
+            "address": ", ".join(part for part in [user.address_line, user.city, user.state, user.pincode] if part),
+        }
     achievements = Achievement.query.filter_by(student_id=user.id).all() if user.is_student else []
     activities = Activity.query.filter_by(student_id=user.id).all() if user.is_student else []
     approved = [a for a in achievements if a.status == "Approved"]
@@ -678,7 +685,7 @@ def _mark_message_notifications_read():
     q = Notification.query.filter(
         Notification.user_id == current_user_id,
         Notification.is_read.is_(False),
-        Notification.title == "New Student Message",
+        Notification.title.in_(["New Citizen Message", "New Student Message"]),
     )
     if not q.first():
         return
@@ -694,7 +701,7 @@ def _unread_notifications_for_student(student, current_user_id):
     return Notification.query.filter(
         Notification.user_id == current_user_id,
         Notification.is_read.is_(False),
-        Notification.title == "New Student Message",
+        Notification.title.in_(["New Citizen Message", "New Student Message"]),
         Notification.message.ilike(f"%{student.full_name}%"),
     ).count()
 

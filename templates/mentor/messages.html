@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Student Messages{% endblock %}
+{% block title %}Citizen Messages{% endblock %}
 {% block content %}
 <div class="page-header d-flex justify-content-between align-items-center">
   <div>
-    <h1>Student Messages</h1>
-    <p class="text-muted mb-0">Review student messages, reply directly, and share study materials.</p>
+    <h1>Citizen Messages</h1>
+    <p class="text-muted mb-0">Review citizen questions about complaints and send government updates directly.</p>
   </div>
   {% include 'components/theme_switcher.html' %}
 </div>
@@ -143,7 +143,7 @@
     <div class="glass-panel neu-card p-3">
       <h5 class="mb-3"><i class="bi bi-inbox"></i> Inbox</h5>
       <form method="get" class="mb-3 d-grid gap-2">
-        <input type="search" name="q" value="{{ filters.q }}" class="form-control" placeholder="Search student or message">
+        <input type="search" name="q" value="{{ filters.q }}" class="form-control" placeholder="Search citizen or message">
         <select name="problem_type" class="form-select">
           <option value="">All problem types</option>
           {% for problem_type in problem_types %}
@@ -176,7 +176,7 @@
           <span class="d-block small text-muted">{{ row.meta.subject }}</span>
         </a>
         {% else %}
-        <p class="text-muted mb-0">No matching student messages.</p>
+        <p class="text-muted mb-0">No matching citizen messages.</p>
         {% endfor %}
       </div>
     </div>
@@ -210,24 +210,16 @@
             {% endif %}
             <div>
               <strong>{{ selected_student.full_name }}</strong>
-              <div class="small text-muted">{{ selected_student.role|title }}{% if selected_student.department %} · {{ selected_student.department }}{% endif %}{% if selected_student.year %} · Year {{ selected_student.year }}{% endif %}</div>
+              <div class="small text-muted">Citizen{% if selected_student.mobile %} · {{ selected_student.mobile }}{% endif %}</div>
             </div>
-          </div>
-          {% if selected_user_stats and selected_user_stats.bio %}
-          <p class="small mb-2">{{ selected_user_stats.bio }}</p>
-          {% endif %}
-          <div class="d-flex flex-wrap gap-2 mb-2">
-            {% if selected_user_stats and selected_user_stats.skills %}
-              {% for skill in selected_user_stats.skills %}
-              <span class="badge bg-primary">{{ skill }}</span>
-              {% endfor %}
-            {% else %}
-              <span class="text-muted small">No skills added yet.</span>
-            {% endif %}
           </div>
           {% if selected_user_stats %}
           <div class="small text-muted">
-            {{ selected_user_stats.points }} pts · {{ selected_user_stats.approved_count }} approved · {{ selected_user_stats.activity_count }} activities
+            {% if selected_student.role == 'citizen' %}
+              {{ selected_user_stats.complaint_count }} complaints · {{ selected_user_stats.active_count }} active · {{ selected_user_stats.resolved_count }} resolved{% if selected_user_stats.address %} · {{ selected_user_stats.address }}{% endif %}
+            {% else %}
+              {{ selected_user_stats.points }} pts · {{ selected_user_stats.approved_count }} approved · {{ selected_user_stats.activity_count }} activities
+            {% endif %}
           </div>
           {% endif %}
         </div>
@@ -262,11 +254,11 @@
           </div>
         </div>
         {% else %}
-        <div class="text-center text-muted py-4">Select a student conversation.</div>
+        <div class="text-center text-muted py-4">Select a citizen conversation.</div>
         {% endfor %}
       </div>
       <div class="shared-materials glass-panel p-3 mb-3">
-        <h6 class="mb-2"><i class="bi bi-folder2-open"></i> Shared Study Materials</h6>
+        <h6 class="mb-2"><i class="bi bi-paperclip"></i> Shared Attachments</h6>
         <div class="d-flex flex-wrap gap-2">
           {% for row in shared_materials %}
           {% set m = row.message %}
@@ -277,7 +269,7 @@
             <span class="text-muted small">from {{ m.sender.full_name }}</span>
           </a>
           {% else %}
-          <span class="text-muted small">No study materials shared yet.</span>
+          <span class="text-muted small">No attachments shared yet.</span>
           {% endfor %}
         </div>
       </div>
@@ -286,10 +278,10 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label for="body" class="form-label">Reply</label>
         <div class="d-grid gap-2">
-          <textarea name="body" id="body" class="form-control" rows="3" placeholder="Write your reply or attach notes/materials"></textarea>
+          <textarea name="body" id="body" class="form-control" rows="3" placeholder="Write a complaint update or response"></textarea>
           <div class="d-flex gap-2 align-items-end">
             <div class="flex-grow-1">
-              <label class="form-label small mb-1">Study Material / Attachment</label>
+              <label class="form-label small mb-1">Complaint Attachment</label>
               <input type="file" name="attachment" class="form-control" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.png,.jpg,.jpeg,.gif,.webp,.mp4,.webm,.mov,.mkv,.avi,.mp3,.wav,.m4a">
               <small class="text-muted">PDF, images, MP4/video, audio, Word, PPT, Excel, ZIP, and text files are supported.</small>
             </div>

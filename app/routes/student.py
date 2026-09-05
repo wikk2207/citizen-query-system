@@ -170,7 +170,7 @@ def messages():
         db.session.add(
             Notification(
                 user_id=selected_mentor.id,
-                title="New Student Message" if selected_mentor.is_mentor else "New Message",
+            title="New Citizen Message" if selected_mentor.is_mentor else "New Message",
                 message=f"{current_user.full_name} sent a {priority.lower()} {problem_type.lower()} message.",
             )
         )
@@ -182,9 +182,9 @@ def messages():
                 f"You got a new message from {current_user.full_name}.\n\n"
                 f"Problem Type: {problem_type}\nPriority: {priority}\n"
                 f"Subject: {display_subject}\n"
-                f"Student: {current_user.full_name} ({current_user.email})\n"
-                f"Roll No: {current_user.roll_number or 'N/A'}\n"
-                f"Department: {current_user.department or 'N/A'}\n"
+                f"Citizen: {current_user.full_name} ({current_user.email})\n"
+                f"Phone: {current_user.mobile or 'N/A'}\n"
+                f"Address: {current_user.address_line or 'N/A'}\n"
                 f"Open: {url_for('mentor.messages', _external=True)}\n\n{body}"
             ),
         )
