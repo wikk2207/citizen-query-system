@@ -11,7 +11,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from app.models import Achievement, Activity, Certificate, User
+from app.models import Achievement, Activity, Certificate, Complaint, Department, User
 from app.utils.helpers import calculate_achievement_points
 
 
@@ -159,6 +159,75 @@ def export_comprehensive_excel():
 def export_csv(achievements, include_student=False):
     df = achievements_to_dataframe(achievements, include_student=include_student)
     return io.BytesIO(df.to_csv(index=False).encode("utf-8"))
+
+
+def citizen_complaints_dataframe(complaints=None):
+    """Exportable, government-facing view of citizen profiles and complaints."""
+    complaints = complaints if complaints is not None else Complaint.query.order_by(Complaint.created_at.desc()).all()
+    rows = []
+    for complaint in complaints:
+        citizen = complaint.citizen
+        department = complaint.department
+        address = ", ".join(part for part in [complaint.address, complaint.city, complaint.state, complaint.pincode] if part)
+        rows.append({
+            "Tracking ID": complaint.tracking_id,
+            "Citizen Name": citizen.full_name if citizen else "",
+            "Citizen Email": citizen.email if citizen else "",
+            "Citizen Phone": citizen.mobile if citizen else "",
+            "Citizen Address": address,
+            "Problem Title": complaint.title,
+            "Description": complaint.description,
+            "Category": complaint.category,
+            "Priority": complaint.priority,
+            "Status": complaint.status,
+            "Department": department.name if department else "Unassigned",
+            "Submitted At": complaint.created_at.strftime("%Y-%m-%d %H:%M UTC") if complaint.created_at else "",
+            "Resolved At": complaint.resolved_at.strftime("%Y-%m-%d %H:%M UTC") if complaint.resolved_at else "",
+        })
+    return pd.DataFrame(rows)
+
+
+def export_civic_excel(complaints=None):
+    complaints = complaints if complaints is not None else Complaint.query.order_by(Complaint.created_at.desc()).all()
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        citizen_complaints_dataframe(complaints).to_excel(writer, index=False, sheet_name="Citizen Complaints")
+        summary = pd.DataFrame([{
+            "Total Citizens": User.query.filter(User.role.in_(["citizen", "student"])).count(),
+            "Total Complaints": len(complaints),
+            "Submitted": sum(item.status == "Submitted" for item in complaints),
+            "In Progress": sum(item.status in {"Acknowledged", "Assigned", "In Progress"} for item in complaints),
+            "Resolved": sum(item.status in {"Resolved", "Closed"} for item in complaints),
+            "Exported At": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+        }])
+        summary.to_excel(writer, index=False, sheet_name="Summary")
+    output.seek(0)
+    return output
+
+
+def export_civic_csv(complaints=None):
+    return io.BytesIO(citizen_complaints_dataframe(complaints).to_csv(index=False).encode("utf-8-sig"))
+
+
+def civic_department_pdf(department, complaints):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    active = sum(item.status not in {"Resolved", "Closed", "Rejected"} for item in complaints)
+    story = [
+        Paragraph(f"CivicVoice Department Report — {escape(department)}", styles["Title"]),
+        Paragraph(f"Total complaints: {len(complaints)} | Active: {active} | Resolved: {sum(item.status in {'Resolved', 'Closed'} for item in complaints)}", styles["Normal"]),
+        Spacer(1, 0.25 * inch),
+    ]
+    data = [["Tracking ID", "Citizen", "Problem", "Status"]]
+    for item in complaints[:100]:
+        data.append([item.tracking_id, _short(item.citizen.full_name if item.citizen else ""), _short(item.title), item.status])
+    table = Table(data, repeatRows=1, colWidths=[100, 110, 190, 100])
+    table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.4, colors.grey), ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey)]))
+    story.append(table)
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
 
 
 def _p(value):

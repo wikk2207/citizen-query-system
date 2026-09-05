@@ -7,11 +7,14 @@ from flask_login import current_user, login_required
 
 from app import db, mail
 from app.forms import ClassroomPostForm, MentorReviewForm
-from app.models import Achievement, Activity, Certificate, ClassroomPost, Message, Notification, User
+from app.models import Achievement, Activity, Certificate, ClassroomPost, Complaint, Message, Notification, User
 from app.services.otp_service import is_mail_configured
 from app.services.otp_service import send_notification_email, send_plain_email
 from app.services.report_service import (
     department_report_pdf,
+    civic_department_pdf,
+    export_civic_csv,
+    export_civic_excel,
     export_comprehensive_excel,
     export_csv,
     export_excel,
@@ -452,38 +455,36 @@ def message_status(student_id):
 @bp.route("/export/full-dataset")
 @mentor_required
 def export_full_dataset():
-    output = export_comprehensive_excel()
+    output = export_civic_excel()
     return send_file(
         output,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         as_attachment=True,
-        download_name="saams_full_student_dataset.xlsx",
+        download_name="civicvoice_citizen_complaints.xlsx",
     )
 
 
 @bp.route("/export/excel")
 @mentor_required
 def export_all_excel():
-    achievements = _filtered_submissions_query().all()
-    output = export_excel(achievements, sheet_name="All Submissions", include_student=True)
+    output = export_civic_excel()
     return send_file(
         output,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         as_attachment=True,
-        download_name="department_achievements.xlsx",
+        download_name="citizen_complaints.xlsx",
     )
 
 
 @bp.route("/export/csv")
 @mentor_required
 def export_all_csv():
-    achievements = _filtered_submissions_query().all()
-    output = export_csv(achievements, include_student=True)
+    output = export_civic_csv()
     return send_file(
         output,
         mimetype="text/csv",
         as_attachment=True,
-        download_name="department_achievements.csv",
+        download_name="citizen_complaints.csv",
     )
 
 
@@ -491,31 +492,15 @@ def export_all_csv():
 @mentor_required
 def export_department_pdf():
     dept = request.args.get("department", current_user.department or "All")
-    achievements = Achievement.query.join(User, Achievement.student_id == User.id).filter(User.role == "student")
+    complaints = Complaint.query.join(Complaint.department)
     if dept != "All":
-        achievements = achievements.filter(db.or_(Achievement.branch == dept, User.department == dept))
-    achievements = achievements.all()
-    stats = {
-        "total": len(achievements),
-        "approved": len([a for a in achievements if a.status == "Approved"]),
-        "pending": len([a for a in achievements if a.status in ("Submitted", "Under Review")]),
-    }
-    top = []
-    for s in User.query.filter_by(role="student").all():
-        ach = [a for a in achievements if a.student_id == s.id and a.status == "Approved"]
-        if ach:
-            top.append({
-                "name": s.full_name,
-                "points": calculate_achievement_points(ach),
-                "approved": len(ach),
-            })
-    top.sort(key=lambda x: x["points"], reverse=True)
-    pdf = department_report_pdf(dept, stats, top[:10])
+        complaints = complaints.filter(Department.name == dept)
+    pdf = civic_department_pdf(dept, complaints.order_by(Complaint.created_at.desc()).all())
     return send_file(
         pdf,
         mimetype="application/pdf",
         as_attachment=True,
-        download_name=f"department_report_{dept}.pdf",
+        download_name=f"civicvoice_{dept.lower().replace(' ', '_')}_report.pdf",
     )
 
 
