@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <meta http-equiv="Permissions-Policy" content="microphone=(self)">
-  <title>{% block title %}Skill Connect{% endblock %} | Skills & Achievement System</title>
+  <title>{% block title %}Civic AI{% endblock %} | Report. Track. Resolve.</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;700&family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -35,7 +35,7 @@
 
   {% if current_user.is_authenticated and not hide_sidebar %}
   <aside class="sidebar glass-panel" id="sidebar" aria-label="Main navigation">
-    <div class="sidebar-brand"><i class="bi bi-stars"></i><span>Skill Connect</span></div>
+    <div class="sidebar-brand"><i class="bi bi-stars"></i><span>Civic AI</span></div>
     <nav class="sidebar-nav" aria-label="Primary">
       <div class="gooey-nav-container sidebar-gooey-nav" data-gooey-nav>
         <nav>
@@ -152,7 +152,7 @@
     <button id="voiceMicBtn" class="voice-mic neu-float" aria-label="Voice assistant"><i class="bi bi-mic-fill" id="voiceMicIcon"></i><span class="voice-pulse" id="voicePulse" hidden></span></button>
     <div id="voicePanel" class="voice-panel glass-panel" hidden>
       <div class="voice-panel-header">
-        <span><i class="bi bi-soundwave"></i> Skill Connect</span>
+        <span><i class="bi bi-soundwave"></i> Civic AI</span>
         <button class="btn-close btn-close-white" id="voicePanelClose" aria-label="Close"></button>
       </div>
       <p id="voiceGuideStep" class="voice-guide-step">Listening…</p>

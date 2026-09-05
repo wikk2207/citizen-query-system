@@ -47,6 +47,8 @@ def report_problem():
         category = request.form.get("category", "Other"); dept = Department.query.filter_by(name=CATEGORIES.get(category, CATEGORIES["Other"])).first()
         c = Complaint(tracking_id=tracking_id(), citizen_id=current_user.id, title=request.form.get("title", "").strip(), description=request.form.get("description", "").strip(), category=category, priority=request.form.get("priority", "Normal"), department=dept, address=request.form.get("address"), city=request.form.get("city"), state=request.form.get("state"), pincode=request.form.get("pincode"), latitude=request.form.get("latitude", type=float), longitude=request.form.get("longitude", type=float))
         if not c.title or not c.description: flash("Title and description are required.", "danger"); return render_template("civic/report.html", categories=CATEGORIES)
+        if not c.address and (c.latitude is None or c.longitude is None):
+            db.session.rollback(); flash("Location is required. Use live location or enter a manual address.", "danger"); return render_template("civic/report.html", categories=CATEGORIES)
         db.session.add(c); db.session.flush()
         evidence = request.files.get("evidence")
         if evidence and evidence.filename:
@@ -99,6 +101,22 @@ def complaint_detail(tracking_id):
 @bp.route("/government/complaints")
 @government_required
 def government_queue(): return render_template("civic/queue.html", complaints=Complaint.query.order_by(Complaint.created_at.desc()).all())
+
+@bp.route("/government/complaints/<tracking_id>/update", methods=["POST"])
+@government_required
+def update_complaint(tracking_id):
+    c = Complaint.query.filter_by(tracking_id=tracking_id).first_or_404()
+    new_status = (request.form.get("status") or c.status).strip(); note = (request.form.get("note") or "").strip()
+    allowed = {"Submitted", "Acknowledged", "Assigned", "In Progress", "Needs Information", "On Hold", "Resolved", "Rejected", "Reopened", "Closed"}
+    if new_status not in allowed or (new_status == "Rejected" and not note):
+        flash("Choose a valid status and provide a reason when rejecting.", "danger"); return redirect(url_for("civic.complaint_detail", tracking_id=tracking_id))
+    if new_status != c.status:
+        old = c.status; c.status = new_status
+        if new_status in ("Resolved", "Closed"): c.resolved_at = datetime.utcnow()
+        db.session.add(ComplaintStatusHistory(complaint_id=c.id, previous_status=old, new_status=new_status, changed_by=current_user.id, note=note))
+    if note: db.session.add(Notification(user_id=c.citizen_id, title="Complaint update", message=f"{c.tracking_id}: {note}"))
+    db.session.commit(); flash("Complaint update sent to the citizen.", "success")
+    return redirect(url_for("civic.complaint_detail", tracking_id=tracking_id))
 
 @bp.route("/government/dashboard")
 @government_required

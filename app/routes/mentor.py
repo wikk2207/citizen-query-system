@@ -56,6 +56,8 @@ def mentor_required(f):
 @bp.route("/dashboard")
 @mentor_required
 def dashboard():
+    if current_user.role in ("government", "mentor", "admin"):
+        return redirect(url_for("civic.government_dashboard"))
     achievements = Achievement.query.filter(Achievement.status != "Draft").all()
     pending = [a for a in achievements if a.status in ("Submitted", "Under Review")]
     approved_today = [
