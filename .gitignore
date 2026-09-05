@@ -2,6 +2,7 @@ venv/
 __pycache__/
 *.pyc
 .env
+.env.*
 saams.db
 saams.db-*
 *.log
@@ -12,4 +13,6 @@ static/uploads/*
 !static/uploads/profiles/
 !static/uploads/profiles/*
 instance/
+*.sqlite
+*.sqlite3
 .migrations/

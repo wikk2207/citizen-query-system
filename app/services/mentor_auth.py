@@ -8,7 +8,7 @@ def get_mentor_whitelist():
     raw = os.environ.get("MENTOR_WHITELIST_EMAILS", "").strip()
     if raw:
         return {e.strip().lower() for e in raw.split(",") if e.strip()}
-    default = os.environ.get("MENTOR_EMAIL", "binaryai0010@gmail.com").strip().lower()
+    default = os.environ.get("MENTOR_EMAIL", "").strip().lower()
     return {default} if default else set()
 
 

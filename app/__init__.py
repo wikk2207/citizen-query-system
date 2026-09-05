@@ -1,6 +1,5 @@
 import os
-import json
-import traceback
+import tempfile
 
 from dotenv import load_dotenv
 
@@ -31,20 +30,33 @@ csrf = CSRFProtect()
 
 
 def create_app(config_name=None):
+    runtime_root = os.environ.get(
+        "RUNTIME_DATA_DIR",
+        os.path.join(tempfile.gettempdir(), "civicvoice") if os.environ.get("VERCEL") else os.path.join(os.path.dirname(os.path.dirname(__file__)), "instance"),
+    )
     app = Flask(
         __name__,
         template_folder="../templates",
         static_folder="../static",
+        instance_path=os.path.abspath(runtime_root),
     )
-    selected_config = config_name or os.environ.get("FLASK_ENV") or os.environ.get("FLASK_CONFIG") or "default"
+    selected_config = config_name or os.environ.get("FLASK_ENV") or os.environ.get("FLASK_CONFIG") or ("production" if os.environ.get("VERCEL") else "default")
     config_class = config_map.get(selected_config, config_map["default"])
     app.config.from_object(config_class)
+    app.config["IS_PRODUCTION"] = selected_config == "production" or bool(os.environ.get("VERCEL"))
+    app.config["SESSION_COOKIE_SECURE"] = app.config["IS_PRODUCTION"]
 
+    if app.config["IS_PRODUCTION"] and not app.config.get("SECRET_KEY"):
+        raise RuntimeError("SECRET_KEY must be configured in the production environment.")
+    if not app.config.get("SQLALCHEMY_DATABASE_URI"):
+        raise RuntimeError("DATABASE_URL must be configured. SQLite and localhost fallbacks are not supported.")
 
-    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    # Only create runtime directories. On Vercel this resolves to /tmp, never /var/task.
     os.makedirs(app.instance_path, exist_ok=True)
-    os.makedirs(os.path.join(app.config["UPLOAD_FOLDER"], "profiles"), exist_ok=True)
-    os.makedirs(os.path.join(app.config["UPLOAD_FOLDER"], "certificates"), exist_ok=True)
+    if app.config["PERSISTENT_UPLOADS_ENABLED"]:
+        os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+        os.makedirs(os.path.join(app.config["UPLOAD_FOLDER"], "profiles"), exist_ok=True)
+        os.makedirs(os.path.join(app.config["UPLOAD_FOLDER"], "certificates"), exist_ok=True)
 
     db.init_app(app)
 
@@ -64,7 +76,8 @@ def create_app(config_name=None):
     login_manager.init_app(app)
     mail.init_app(app)
     csrf.init_app(app)
-    CORS(app, supports_credentials=True)
+    if app.config["CORS_ORIGINS"]:
+        CORS(app, supports_credentials=True, origins=app.config["CORS_ORIGINS"])
     app.config["LAST_ERROR"] = None
 
     login_manager.login_view = "auth.login"
@@ -114,26 +127,18 @@ def create_app(config_name=None):
             language=language, t=lambda text: translate(text, language),
         )
 
-    with app.app_context():
-        db.create_all()
-        _ensure_schema_columns(app)
+    if app.config["AUTO_SCHEMA_MANAGEMENT"]:
+        with app.app_context():
+            db.create_all()
+            _ensure_schema_columns(app)
 
     @app.errorhandler(Exception)
     def capture_unhandled_error(error):
         if isinstance(error, HTTPException):
             return error
         app.logger.exception("Unhandled application error")
-        error_record = {
-            "type": type(error).__name__,
-            "message": str(error),
-            "traceback": traceback.format_exc(limit=12),
-        }
+        error_record = {"type": type(error).__name__}
         app.config["LAST_ERROR"] = error_record
-        try:
-            with open(os.path.join(app.instance_path, "last_error.json"), "w", encoding="utf-8") as fh:
-                json.dump(error_record, fh)
-        except Exception:
-            app.logger.exception("Failed to write last error diagnostic")
         return "Internal Server Error", 500
 
     return app

@@ -78,13 +78,16 @@ def student_required(f):
 def report_upload():
     form = ReportForm()
     if form.validate_on_submit():
+        if not current_app.config.get("PERSISTENT_UPLOADS_ENABLED"):
+            flash("Report uploads are unavailable until persistent object storage is configured for this deployment.", "danger")
+            return redirect(url_for("student.report_upload"))
         file = form.file.data
         filename = f"report_{current_user.id}_{int(datetime.utcnow().timestamp())}_{file.filename}"
-        upload_folder = os.path.join("static", "uploads", "reports")
+        upload_folder = os.path.join(current_app.config["UPLOAD_FOLDER"], "reports")
         os.makedirs(upload_folder, exist_ok=True)
         file_path = os.path.join(upload_folder, filename)
         file.save(file_path)
-        rel_path = os.path.relpath(file_path, "static")
+        rel_path = os.path.relpath(file_path, current_app.static_folder)
         report = Report(
             student_id=current_user.id,
             title=form.title.data,

@@ -8,15 +8,15 @@ services:
       - key: FLASK_ENV
         value: production
       - key: FLASK_APP
-        value: app.py
+        value: run:app
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: SECRET_KEY
         generateValue: true
       - key: MENTOR_EMAIL
-        value: binaryai0010@gmail.com
+        sync: false
       - key: MENTOR_WHITELIST_EMAILS
-        value: binaryai0010@gmail.com
+        sync: false
       - key: MAIL_SERVER
         value: smtp.gmail.com
       - key: MAIL_PORT

@@ -198,7 +198,10 @@ def ocr_preview():
     file = request.files.get("file")
     if not file or not file.filename:
         return jsonify({"error": "No file provided"}), 400
-    rel, _ = save_upload(file, "temp_ocr")
+    try:
+        rel, _ = save_upload(file, "temp_ocr")
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 503
     result = process_certificate_upload(rel, current_user.full_name)
     return jsonify(result)
 

@@ -122,7 +122,7 @@ def register():
 
                     user.profile_photo = rel
 
-                except ValueError as e:
+                except (ValueError, RuntimeError) as e:
 
                     flash(str(e), "warning")
 
@@ -633,7 +633,7 @@ def profile():
                 try:
                     rel, _ = save_upload(form.profile_photo.data, "profiles")
                     current_user.profile_photo = rel
-                except ValueError as e:
+                except (ValueError, RuntimeError) as e:
                     flash(str(e), "warning")
 
         db.session.commit()

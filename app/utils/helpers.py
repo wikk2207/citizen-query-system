@@ -24,6 +24,10 @@ def save_upload(file, subfolder="certificates"):
         return None, None
     if not allowed_file(file.filename):
         return None, None
+    if not current_app.config.get("PERSISTENT_UPLOADS_ENABLED"):
+        raise RuntimeError(
+            "File uploads are unavailable until persistent object storage is configured for this deployment."
+        )
     ext = file.filename.rsplit(".", 1)[1].lower()
     safe = secure_filename(file.filename.rsplit(".", 1)[0])
     unique = f"{safe}_{uuid.uuid4().hex[:8]}.{ext}"

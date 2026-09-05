@@ -10,7 +10,7 @@ try:
     import cv2
     import numpy as np
     HAS_CV = True
-except ImportError:
+except (ImportError, OSError):
     HAS_CV = False
 
 

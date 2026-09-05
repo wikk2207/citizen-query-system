@@ -365,7 +365,11 @@ def messages(student_id=None):
             return redirect(url_for("mentor.messages"))
         body = (request.form.get("body") or "").strip()
         attachment_file = request.files.get("attachment")
-        attachment_rel, _ = save_upload(attachment_file, "message_attachments")
+        try:
+            attachment_rel, _ = save_upload(attachment_file, "message_attachments")
+        except RuntimeError as exc:
+            flash(str(exc), "danger")
+            return redirect(url_for("mentor.messages", student_id=selected_student.id))
         if attachment_file and attachment_file.filename and not attachment_rel:
             flash("This file type is not supported for chat sharing.", "danger")
             return redirect(url_for("mentor.messages", student_id=selected_student.id))

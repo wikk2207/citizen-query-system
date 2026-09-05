@@ -1,6 +1,3 @@
-import json
-import os
-
 from flask import Blueprint, current_app, jsonify, render_template, redirect, url_for, session, request
 from flask_login import current_user
 from sqlalchemy import text
@@ -60,8 +57,9 @@ def healthz():
     try:
         db.session.execute(text("select 1"))
         return jsonify({"status": "ok", "database": "ok"})
-    except Exception as exc:
-        return jsonify({"status": "error", "database": str(exc)}), 500
+    except Exception:
+        current_app.logger.exception("Database health check failed")
+        return jsonify({"status": "error", "database": "unavailable"}), 503
 
 
 @bp.route("/healthz/deep")
@@ -77,10 +75,11 @@ def healthz_deep():
         result["checks"]["classroom_posts"] = ClassroomPost.query.count()
         result["checks"]["mail_server"] = "configured" if _mail_ready() else "missing"
         return jsonify(result)
-    except Exception as exc:
+    except Exception:
+        current_app.logger.exception("Deep health check failed")
         result["status"] = "error"
-        result["error"] = str(exc)
-        return jsonify(result), 500
+        result["error"] = "A dependency is unavailable. Check server logs."
+        return jsonify(result), 503
 
 
 def _mail_ready():
@@ -95,11 +94,4 @@ def _mail_ready():
 
 @bp.route("/healthz/last-error")
 def healthz_last_error():
-    error_file = os.path.join(current_app.instance_path, "last_error.json")
-    if os.path.exists(error_file):
-        try:
-            with open(error_file, "r", encoding="utf-8") as fh:
-                return jsonify(json.load(fh))
-        except Exception as exc:
-            return jsonify({"status": "could not read last error", "message": str(exc)}), 500
     return jsonify(current_app.config.get("LAST_ERROR") or {"status": "no error captured yet"})

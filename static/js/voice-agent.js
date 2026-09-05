@@ -26,7 +26,8 @@
 
   // ── Mentor whitelist ──────────────────────────────────────────────────
   // Strict whitelist: ONLY this email gets the mentor dashboard.
-  const MENTOR_EMAIL_WHITELIST = ['binaryai0010@gmail.com'];
+  // Server-side role checks are authoritative; do not embed privileged emails in client code.
+  const MENTOR_EMAIL_WHITELIST = [];
 
   function isMentorEmail(email) {
     if (!email) return false;
@@ -174,7 +175,6 @@
   /**
    * Normalizes a spoken email string:
    *   "binary AI zero zero ten at the rate gmail dot com"
-   *   → "binaryai0010@gmail.com"
    *
    * Order matters: "at the rate" must be replaced before standalone "at".
    */

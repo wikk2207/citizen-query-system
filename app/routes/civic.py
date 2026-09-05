@@ -52,7 +52,12 @@ def report_problem():
         db.session.add(c); db.session.flush()
         evidence = request.files.get("evidence")
         if evidence and evidence.filename:
-            relative_path, stored_name = save_upload(evidence, "complaint_evidence")
+            try:
+                relative_path, stored_name = save_upload(evidence, "complaint_evidence")
+            except RuntimeError as exc:
+                db.session.rollback()
+                flash(str(exc), "danger")
+                return render_template("civic/report.html", categories=CATEGORIES)
             if not relative_path:
                 db.session.rollback(); flash("This file type is not supported.", "danger"); return render_template("civic/report.html", categories=CATEGORIES)
             db.session.add(ComplaintAttachment(complaint_id=c.id, uploaded_by=current_user.id, file_name=stored_name, file_path=relative_path, attachment_type="citizen_evidence"))

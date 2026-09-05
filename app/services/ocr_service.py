@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 from datetime import datetime
 
 from flask import current_app
@@ -11,7 +12,7 @@ try:
     from PIL import Image
 
     HAS_OCR = True
-except ImportError:
+except (ImportError, OSError):
     HAS_OCR = False
 
 
@@ -21,11 +22,29 @@ def _configure_tesseract():
         pytesseract.pytesseract.tesseract_cmd = cmd
 
 
+def _ocr_runtime_error():
+    """Return a user-facing prerequisite error without probing OCR during app startup."""
+    if not HAS_OCR:
+        return "OCR libraries are not installed"
+    configured = current_app.config.get("TESSERACT_CMD")
+    executable = configured or shutil.which("tesseract")
+    if not executable or (configured and not os.path.isfile(configured)):
+        return "OCR is unavailable because the Tesseract runtime is not installed on this server."
+    try:
+        pytesseract.get_tesseract_version()
+    except pytesseract.TesseractNotFoundError:
+        return "OCR is unavailable because the Tesseract runtime is not installed on this server."
+    return None
+
+
 def extract_text_from_file(file_path):
     if not HAS_OCR:
         return "", 0.0, "OCR libraries not installed"
 
     _configure_tesseract()
+    runtime_error = _ocr_runtime_error()
+    if runtime_error:
+        return "", 0.0, runtime_error
     full_path = file_path
     if not os.path.isabs(file_path):
         base = os.path.dirname(current_app.root_path)
@@ -46,6 +65,9 @@ def extract_text_from_file(file_path):
                 img = pages[0]
             except ImportError:
                 return "", 0.0, "PDF OCR requires pdf2image"
+            except Exception as exc:
+                # Poppler is not available in Vercel's Python runtime by default.
+                return "", 0.0, f"PDF OCR is unavailable on this server: {exc}"
         else:
             img = Image.open(full_path)
 

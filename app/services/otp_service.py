@@ -93,8 +93,10 @@ def send_otp_email(user, code, purpose="verification"):
         subject = "Skill Connect Mentor Security OTP"
 
     if not is_mail_configured():
+        if current_app.config.get("IS_PRODUCTION"):
+            return False, "Email delivery is not configured. Please contact the administrator."
         store_dev_otp(code)
-        current_app.logger.info("DEV OTP for %s: %s", user.email, code)
+        current_app.logger.info("Development OTP generated for %s", user.email)
         return False, (
             f"Email is not configured. Your verification code is: {code} "
             "(also shown below — valid 10 minutes)"

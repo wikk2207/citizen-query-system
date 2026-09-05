@@ -4,6 +4,11 @@ Migration for ChatMessage table
 from alembic import op
 import sqlalchemy as sa
 
+revision = "20260530_chat_message"
+down_revision = None
+branch_labels = None
+depends_on = None
+
 def upgrade():
     op.create_table(
         'chat_message',
